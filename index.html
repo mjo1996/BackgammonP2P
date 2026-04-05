@@ -614,7 +614,13 @@
         } else {
             const turnColor = gameState.currentTurn === 1 ? 'white' : 'black';
             if (myRole !== turnColor) return alert("Not your turn!");
-            if (gameState.dice.length > 0) return alert("Finish your moves!");
+            const dicePool = stagedGameState ? stagedGameState.dice : gameState.dice;
+            if (dicePool.length > 0) return alert("Finish your moves!");
+            if (stagedGameState) {
+                // Discard any partial staged state before rolling new turn
+                stagedGameState = null;
+                previousGameState = null;
+            }
 
             const d1 = Math.floor(Math.random() * 6) + 1;
             const d2 = Math.floor(Math.random() * 6) + 1;
@@ -628,17 +634,18 @@
     function canEnterFromBar(die) {
         const isWhite = gameState.currentTurn === 1;
         const entryIdx = isWhite ? die - 1 : 24 - die;
-        const targetVal = gameState.board[entryIdx];
+        // Check staged board if available
+        const boardState = stagedGameState ? stagedGameState.board : gameState.board;
+        const targetVal = boardState[entryIdx];
         // Destination must not be blocked
         if (isWhite && targetVal <= -2) return false;
         if (!isWhite && targetVal >= 2) return false;
         return true;
     }
-
-    // Validate a normal move **using only the supplied die**
     function validateMoveWithDie(from, to, die) {
         const isWhite = gameState.currentTurn === 1;
         const direction = gameState.currentTurn;
+        const boardState = stagedGameState ? stagedGameState.board : gameState.board;
 
         // ---------- BEARING OFF ----------
         if (to === "off") {
@@ -649,8 +656,8 @@
             // higher‑die rule
             if (die > distance) {
                 const pointsToCheck = isWhite ?
-                    gameState.board.slice(18, from) :          // white higher points
-                    gameState.board.slice(from + 1, 6);       // black higher points
+                    boardState.slice(18, from) :          // white higher points
+                    boardState.slice(from + 1, 6);       // black higher points
                 const hasHigher = pointsToCheck.some(cnt => isWhite ? cnt > 0 : cnt < 0);
                 return !hasHigher;
             }
@@ -661,7 +668,7 @@
         const targetIdx = from + die * direction;
         if (targetIdx < 0 || targetIdx > 23) return false; // off‑board handled above
 
-        const targetVal = gameState.board[targetIdx];
+        const targetVal = boardState[targetIdx];
         if ((isWhite && targetVal <= -2) || (!isWhite && targetVal >= 2)) return false;
         return true;
     }
@@ -671,11 +678,13 @@
     // -----------------------------------------------------------------
     function anyLegalMoves() {
         const isWhite = gameState.currentTurn === 1;
+        // Use staged dice if available, otherwise use original dice
+        const dicePool = stagedGameState ? stagedGameState.dice : gameState.dice;
         const barCount = isWhite ? gameState.bar.white : gameState.bar.black;
 
         // 1️⃣  Bar entry possibilities
         if (barCount > 0) {
-            for (const die of gameState.dice) {
+            for (const die of dicePool) {
                 if (canEnterFromBar(die)) return true;
             }
             // No bar entry possible – player must forfeit the turn
@@ -686,7 +695,7 @@
         for (let i = 0; i < 24; i++) {
             const pointVal = gameState.board[i];
             if ((isWhite && pointVal > 0) || (!isWhite && pointVal < 0)) {
-                for (const die of gameState.dice) {
+                for (const die of dicePool) {
                     // try normal move
                     if (validateMoveWithDie(i, i + die * gameState.currentTurn, die)) return true;
                     // try bearing off (only from home board)
@@ -702,13 +711,15 @@
     //  END TURN AUTOMATICALLY IF NO DIE CAN BE PLAYED
     // -----------------------------------------------------------------
     function checkAndEndTurnIfNoMoves() {
-        if (gameState.dice.length === 0) {
+        // Use staged dice if available, otherwise use original dice
+        const dicePool = stagedGameState ? stagedGameState.dice : gameState.dice;
+        if (dicePool.length === 0) {
             // dice already exhausted – turn already switched elsewhere
             return;
         }
         if (!anyLegalMoves()) {
             // No move possible → consume remaining dice and pass turn
-            gameState.dice = [];
+            dicePool.length = 0;
             gameState.currentTurn *= -1;
             updateUIDisplay();
             sendGameState();
@@ -718,10 +729,13 @@
     function validateBarMove(toIndex) {
         const isWhite = gameState.currentTurn === 1;
         const requiredDist = isWhite ? (toIndex + 1) : (24 - toIndex);
+        // Use staged dice if available, otherwise use original dice
+        const dicePool = stagedGameState ? stagedGameState.dice : gameState.dice;
         // Must have a die that matches the required distance
-        if (!gameState.dice.includes(requiredDist)) return false;
-        // Destination point must not be blocked
-        const targetVal = gameState.board[toIndex];
+        if (!dicePool.includes(requiredDist)) return false;
+        // Destination point must not be blocked (check staged board if available)
+        const boardState = stagedGameState ? stagedGameState.board : gameState.board;
+        const targetVal = boardState[toIndex];
         if (isWhite && targetVal <= -2) return false;
         if (!isWhite && targetVal >= 2) return false;
         return true;
@@ -777,8 +791,9 @@
         //     enter them first.  Clicking a point will try to move from
         //     the bar onto that point.
         // -------------------------------------------------------------
-        const playerBarCount = (myRole === 'white') ? gameState.bar.white
-                                                   : gameState.bar.black;
+        const barState = stagedGameState || gameState;
+        const playerBarCount = (myRole === 'white') ? barState.bar.white
+                                                   : barState.bar.black;
 
         if (playerBarCount > 0) {
             // Attempt a bar entry move
@@ -801,9 +816,11 @@
         // -------------------------------------------------------------
         // 2️⃣  Normal move logic (unchanged, just kept here for clarity)
         // -------------------------------------------------------------
-        if (gameState.isOpeningRoll || gameState.dice.length === 0) return;
+        const dicePool = stagedGameState ? stagedGameState.dice : gameState.dice;
+        if (gameState.isOpeningRoll || dicePool.length === 0) return;
 
-        const pointValue = gameState.board[index];
+        const boardState = stagedGameState ? stagedGameState.board : gameState.board;
+        const pointValue = boardState[index];
 
         if (selectedPointIndex === null) {
             // Select a piece on the board
@@ -831,23 +848,27 @@
         const isWhite = gameState.currentTurn === 1;
         const direction = gameState.currentTurn;
 
+        // Use staged dice if available, otherwise use original dice
+        const dicePool = stagedGameState ? stagedGameState.dice : gameState.dice;
+
         // --- BEARING OFF LOGIC ---
         if (to === "off") {
             if (!canBearOff(isWhite)) return false;
 
             const distance = isWhite ? (24 - from) : (from + 1);
-            
+
             // Exact match
-            if (gameState.dice.includes(distance)) return true;
+            if (dicePool.includes(distance)) return true;
 
             // Higher die than needed rule:
             // You can use a 6 to bear off from 4 IF there are no checkers on 5 or 6.
-            const maxDie = Math.max(...gameState.dice);
+            const maxDie = Math.max(...dicePool);
             if (maxDie > distance) {
-                const pointsToCheck = isWhite ? 
-                    gameState.board.slice(18, from) : // Points higher than 'from' for white
-                    gameState.board.slice(from + 1, 6); // Points higher than 'from' for black
-                
+                const boardState = stagedGameState ? stagedGameState.board : gameState.board;
+                const pointsToCheck = isWhite ?
+                    boardState.slice(18, from) : // Points higher than 'from' for white
+                    boardState.slice(from + 1, 6); // Points higher than 'from' for black
+
                 const hasHigherCheckers = pointsToCheck.some(count => isWhite ? count > 0 : count < 0);
                 if (!hasHigherCheckers) return true;
             }
@@ -858,10 +879,12 @@
         const distance = (to - from) * direction;
         if (distance <= 0) return false;
 
-        const dieIndex = gameState.dice.indexOf(distance);
+        const dieIndex = dicePool.indexOf(distance);
         if (dieIndex === -1) return false;
 
-        const targetValue = gameState.board[to];
+        // Check target on staged board if available
+        const boardState = stagedGameState ? stagedGameState.board : gameState.board;
+        const targetValue = boardState[to];
         if ((isWhite && targetValue <= -2) || (!isWhite && targetValue >= 2)) {
             return false;
         }
@@ -870,17 +893,18 @@
 
     // Helper to check if all checkers are in the home board
     function canBearOff(isWhite) {
+        const state = stagedGameState || gameState;
         if (isWhite) {
             // White home board is indices 18-23. Check 0-17 and bar.
-            if (gameState.bar.white > 0) return false;
+            if (state.bar.white > 0) return false;
             for (let i = 0; i < 18; i++) {
-                if (gameState.board[i] > 0) return false;
+                if (state.board[i] > 0) return false;
             }
         } else {
             // Black home board is indices 0-5. Check 6-23 and bar.
-            if (gameState.bar.black > 0) return false;
+            if (state.bar.black > 0) return false;
             for (let i = 6; i < 24; i++) {
-                if (gameState.board[i] < 0) return false;
+                if (state.board[i] < 0) return false;
             }
         }
         return true;
@@ -1008,7 +1032,8 @@
 
     // Add click events to the trays
     document.getElementById('off-white').onclick = () => {
-        if (selectedPointIndex !== null && gameState.currentTurn === 1) {
+        const turnColor = gameState.currentTurn === 1 ? 'white' : 'black';
+        if (selectedPointIndex !== null && myRole === turnColor) {
             if (validateMove(selectedPointIndex, "off")) {
                 executeMove(selectedPointIndex, "off");
             }
@@ -1016,7 +1041,8 @@
     };
 
     document.getElementById('off-black').onclick = () => {
-        if (selectedPointIndex !== null && gameState.currentTurn === -1) {
+        const turnColor = gameState.currentTurn === 1 ? 'white' : 'black';
+        if (selectedPointIndex !== null && myRole === turnColor) {
             if (validateMove(selectedPointIndex, "off")) {
                 executeMove(selectedPointIndex, "off");
             }
