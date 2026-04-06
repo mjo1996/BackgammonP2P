@@ -1075,37 +1075,8 @@
         offWhiteEl.innerHTML = '';
         offBlackEl.innerHTML = '';
 
-        const whiteLabel = document.createElement('div');
-        whiteLabel.style.marginBottom = '6px';
-        whiteLabel.textContent = `White: ${state.off.white}`;
-        offWhiteEl.appendChild(whiteLabel);
-
-        if (state.off.white > 0) {
-            const stack = document.createElement('div');
-            stack.className = 'checker-stack';
-            for (let i = 0; i < state.off.white; i++) {
-                const checker = document.createElement('div');
-                checker.className = 'checker white-checker';
-                stack.appendChild(checker);
-            }
-            offWhiteEl.appendChild(stack);
-        }
-
-        const blackLabel = document.createElement('div');
-        blackLabel.style.marginTop = '6px';
-        blackLabel.textContent = `Black: ${state.off.black}`;
-        offBlackEl.appendChild(blackLabel);
-
-        if (state.off.black > 0) {
-            const stack = document.createElement('div');
-            stack.className = 'checker-stack';
-            for (let i = 0; i < state.off.black; i++) {
-                const checker = document.createElement('div');
-                checker.className = 'checker black-checker';
-                stack.appendChild(checker);
-            }
-            offBlackEl.appendChild(stack);
-        }
+        offWhiteEl.textContent = `W:${state.off.white}`;
+        offBlackEl.textContent = `B:${state.off.black}`;
 
         document.getElementById('bar-top').innerText = `B: ${state.bar.black}`;
         document.getElementById('bar-bottom').innerText = `W: ${state.bar.white}`;
@@ -1139,39 +1110,11 @@
         offBlackEl.innerHTML = '';
 
         // White off-board
-        const whiteLabel = document.createElement('div');
-        whiteLabel.style.marginBottom = '6px';
-        whiteLabel.textContent = `White: ${gameState.off.white}`;
-        offWhiteEl.appendChild(whiteLabel);
-
-        if (gameState.off.white > 0) {
-            const stack = document.createElement('div');
-            stack.className = 'checker-stack';
-            for (let i = 0; i < gameState.off.white; i++) {
-                const checker = document.createElement('div');
-                checker.className = 'checker white-checker';
-                stack.appendChild(checker);
-            }
-            offWhiteEl.appendChild(stack);
-        }
+        offWhiteEl.textContent = `W:${gameState.off.white}`;
 
         // Black off-board
-        const blackLabel = document.createElement('div');
-        blackLabel.style.marginTop = '6px';
-        blackLabel.textContent = `Black: ${gameState.off.black}`;
-        offBlackEl.appendChild(blackLabel);
+        offBlackEl.textContent = `B:${gameState.off.black}`;
 
-        if (gameState.off.black > 0) {
-            const stack = document.createElement('div');
-            stack.className = 'checker-stack';
-            for (let i = 0; i < gameState.off.black; i++) {
-                const checker = document.createElement('div');
-                checker.className = 'checker black-checker';
-                stack.appendChild(checker);
-            }
-            offBlackEl.appendChild(stack);
-        }
-        
         // Render Bar counts (now both visible)
         document.getElementById('bar-top').innerText = `B: ${gameState.bar.black}`;
         document.getElementById('bar-bottom').innerText = `W: ${gameState.bar.white}`;
