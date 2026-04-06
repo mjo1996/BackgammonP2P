@@ -476,7 +476,7 @@
         <button id="undo-btn" disabled>Undo</button>
         <button id="confirm-btn" disabled>Confirm</button>
         <div id="dice-display">--</div>
-        <p id="status-msg">White's Turn</p>
+        <p id="status-msg">Connect to play</p>
     </div>
 </div>
 
@@ -1000,6 +1000,12 @@
     function updateUIDisplay() {
         const diceDiv = document.getElementById('dice-display');
         const statusP = document.getElementById('status-msg');
+
+        // Show "Connect to play" if no connection
+        if (!conn || !conn.open) {
+            statusP.innerText = "Connect to play";
+            return;
+        }
 
         if (gameState.isOpeningRoll) {
             diceDiv.innerText = `${gameState.openingRolls.white || '-'} : ${gameState.openingRolls.black || '-'}`;
